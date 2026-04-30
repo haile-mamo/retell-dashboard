@@ -3,18 +3,64 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { ArrowLeft, Phone, Loader2, ShieldCheck, Music, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldCheck, Trash2 } from "lucide-react";
 
-interface CallLogsProps {
-  userId?: string;
-  isAdmin?: boolean;
+// Next.js ገጽ የሚቀበላቸው ትክክለኛ የ Props አይነቶች
+interface PageProps {
+  params: { slug: string };
+  searchParams: { [key: string]: string | string[] | undefined };
 }
 
-export default function CallLogsPage({ userId, isAdmin = false }: CallLogsProps) {
+export default function CallLogsPage({ searchParams }: PageProps) {
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
-  // Function to delete record from Supabase
+  // 1. የተጠቃሚውን Session እና Admin መሆኑን ማረጋገጥ
+  useEffect(() => {
+    async function checkUser() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        // እዚህ ጋር የአድሚን ኢሜይልህን አስገባ (ለምሳሌ: "admin@example.com")
+        // ወይም ደግሞ በ Supabase metadata ውስጥ ካለህ እሱን ተጠቀም
+        if (session.user.email === "haile@example.com") {
+          setIsAdminUser(true);
+        }
+      }
+    }
+    checkUser();
+  }, []);
+
+  // 2. ዳታዎችን ከ Supabase መጫን
+  useEffect(() => {
+    async function fetchCalls() {
+      if (!user) return; // ተጠቃሚው ገና ካልታወቀ ምንም አያደርግም
+
+      setLoading(true);
+      try {
+        let query = supabase.from("calls").select("*");
+        
+        // አድሚን ካልሆነ የራሱን ብቻ እንዲያይ ማጣራት
+        if (!isAdminUser) {
+          query = query.eq("user_id", user.id); 
+        }
+
+        const { data, error } = await query.order("created_at", { ascending: false });
+        if (error) throw error;
+        if (data) setCalls(data);
+      } catch (err) {
+        console.error("Fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    if (user) fetchCalls();
+  }, [user, isAdminUser]);
+
+  // መረጃን የመሰረዝ ተግባር
   const handleDelete = async (callId: string) => {
     if (!confirm("Are you sure you want to delete this record?")) return;
 
@@ -31,26 +77,8 @@ export default function CallLogsPage({ userId, isAdmin = false }: CallLogsProps)
     }
   };
 
-  useEffect(() => {
-    async function fetchCalls() {
-      setLoading(true);
-      try {
-        let query = supabase.from("calls").select("*");
-        if (!isAdmin && userId) {
-          query = query.eq("user_id", userId); 
-        }
-        const { data, error } = await query.order("created_at", { ascending: false });
-        if (data) setCalls(data);
-      } catch (err) {
-        console.error("Fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchCalls();
-  }, [userId, isAdmin]);
-
-  if (loading) return (
+  // መረጃው እስኪጫን የሚታይ ማሳያ
+  if (loading && !user) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
       <Loader2 className="animate-spin text-emerald-500 w-10 h-10" />
     </div>
@@ -69,7 +97,7 @@ export default function CallLogsPage({ userId, isAdmin = false }: CallLogsProps)
               Call Logs
             </h1>
           </div>
-          {isAdmin && (
+          {isAdminUser && (
             <div className="bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-full flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
               <span className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Admin Access</span>
@@ -111,11 +139,11 @@ export default function CallLogsPage({ userId, isAdmin = false }: CallLogsProps)
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-3">
-                          {call.recording_url && (
+                          {call.recording_url ? (
                             <audio controls className="h-8 w-40 custom-audio">
                               <source src={call.recording_url} type="audio/mpeg" />
                             </audio>
-                          ) || <span className="text-xs text-zinc-700 italic">No Audio</span>}
+                          ) : <span className="text-xs text-zinc-700 italic">No Audio</span>}
                           <button 
                             onClick={() => handleDelete(call.id)}
                             className="text-zinc-600 hover:text-red-500 transition-colors p-2 hover:bg-red-500/10 rounded-full"
