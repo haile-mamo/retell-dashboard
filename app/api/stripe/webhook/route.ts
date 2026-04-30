@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabase } from "@/lib/supabase";
 
-// 1. የ API Version ወደ አዲሱ "2024-04-10" ተቀይሯል
-// ይህም በ Vercel ላይ ያጋጠመህን የ Type Error ይፈታዋል
+// 1. የ Stripe SDK የሚጠብቀውን ትክክለኛ ስሪት በመጠቀም አዲሱን Stripe Instance መፍጠር
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-04-10", 
+  apiVersion: "2026-04-22.dahlia" as any, 
 });
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -14,7 +13,7 @@ export async function POST(req: Request) {
   const body = await req.text();
   const sig = req.headers.get("stripe-signature");
 
-  // Signature ከሌለ ወዲያውኑ ውድቅ ማድረግ
+  // Signature ወይም Secret ከሌለ ስህተት መመለስ
   if (!sig || !endpointSecret) {
     return NextResponse.json({ error: "Missing signature or secret" }, { status: 400 });
   }
@@ -22,22 +21,23 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
+    // ከ Stripe የመጣው መረጃ ትክክለኛ መሆኑን ማረጋገጥ
     event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
   } catch (err: any) {
     console.error(`Webhook Error: ${err.message}`);
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
 
-  // የክፍያ ሂደቱ በተሳካ ሁኔታ ሲጠናቀቅ
+  // የክፍያ ሂደቱ በተሳካ ሁኔታ መጠናቀቁን ቼክ ማድረግ
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const orgId = session.metadata?.orgId;
     
-    // Stripe ሳንቲሞችን (cents) ስለሚልክ ወደ ዶላር ለመቀየር ለ 100 እናካፍለዋለን
+    // Stripe በ cents ስለሚልክ ወደ ትክክለኛው የገንዘብ መጠን መለወጥ
     const amountPaid = (session.amount_total || 0) / 100;
 
     if (orgId) {
-      // 2. የአሁኑን የድርጅቱን የገንዘብ መጠን (Balance) ማግኘት
+      // ድርጅቱ ያለውን የቆየ Balance መፈለግ
       const { data: org, error: fetchError } = await supabase
         .from("organizations")
         .select("balance")
@@ -49,11 +49,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Organization not found" }, { status: 404 });
       }
 
-      // 3. አዲሱን መጠን ማስላት
+      // አዲሱን Balance ማስላት
       const currentBalance = org?.balance || 0;
       const newBalance = currentBalance + amountPaid;
 
-      // 4. በ Supabase ላይ የ Balance ለውጡን ማዘመን
+      // በ Supabase ላይ አዲሱን Balance ማዘመን
       const { error: updateError } = await supabase
         .from("organizations")
         .update({ balance: newBalance })
