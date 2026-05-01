@@ -1,3 +1,7 @@
+// 1. Next.js ይህንን API በ Build ሰዓት እንዳይነካው የሚከለክሉ ጥብቅ መመሪያዎች
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin"; 
 
@@ -22,22 +26,20 @@ export async function POST(req: Request) {
       }, { status: 404 });
     }
 
-    // 2. ቁጥር መፈለግ (Search) - እዚህ ጋር ጥንቃቄ ተጨምሯል
-    const targetAreaCode = areaCode || '202'; // 415 ካልሰራ 202 (Washington DC) ይሞክራል
+    // 2. ቁጥር መፈለግ (Search)
+    const targetAreaCode = areaCode || '202'; 
     const searchRes = await fetch(`https://api.vapi.ai/phone-number/search?areaCode=${targetAreaCode}`, {
       headers: { "Authorization": `Bearer ${process.env.VAPI_API_KEY}` }
     });
     
     const availableNumbers = await searchRes.json();
 
-    // ቁጥር ካልተገኘ የሚሰጠው ጥንቃቄ
     if (!availableNumbers || !Array.isArray(availableNumbers) || availableNumbers.length === 0) {
       return NextResponse.json({ 
         error: `ለአካባቢ ኮድ ${targetAreaCode} የሚሸጥ ቁጥር አሁን ላይ የለም። እባክህ ሌላ ኮድ (ለምሳሌ 302 ወይም 202) ሞክር።` 
       }, { status: 404 });
     }
 
-    // ቁጥር ከተገኘ የመጀመሪያውን እንወስዳለን
     const selectedNumber = availableNumbers[0].number;
 
     // 3. ቁጥሩን መግዛት (Purchase)
