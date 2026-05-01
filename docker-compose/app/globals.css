@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  /* RootLayout ላይ Inter ስላደረግነው እዚህ ጋር font-family መጠቀስ አያስፈልገውም */
+}
+
+/* ለዳሽቦርዱ አስፈላጊ የሆኑ ተጨማሪ ስታይሎች ካሉህ ከዚህ በታች መቀጠል ትችላለህ */
