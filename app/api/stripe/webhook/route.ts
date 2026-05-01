@@ -1,8 +1,12 @@
+// 1. Next.js ይህንን API በ Build ሰዓት እንዳይነካውና ስህተት እንዳይፈጥር የሚያደርጉ መመሪያዎች
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabase } from "@/lib/supabase";
 
-// 1. የ Stripe SDK የሚጠብቀውን ትክክለኛ ስሪት በመጠቀም አዲሱን Stripe Instance መፍጠር
+// የ Stripe SDK የሚጠብቀውን ትክክለኛ ስሪት በመጠቀም አዲሱን Stripe Instance መፍጠር
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-04-22.dahlia" as any, 
 });
